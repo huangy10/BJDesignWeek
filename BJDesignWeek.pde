@@ -1,3 +1,11 @@
+import org.openkinect.freenect.*;
+import org.openkinect.freenect2.*;
+import org.openkinect.processing.*;
+import org.openkinect.tests.*;
+
+Kinect kinect;
+final int kinectDepthMinReq = 10;
+
 float global_time = 0;
 
 final color themeBlue = color(16, 51, 128, 255);
@@ -10,7 +18,7 @@ final float logoScale = 0.5;
 final color logoBGColor = color(0, 0, 0, 255);
 
 boolean free = true;
-int sys_mode = 0;
+int sys_mode = 0;    // 0: free, 1: moving, 2: shrinking, 3: form logo
 int modeCD = 300;
 
 final float pi = 3.1415926;
@@ -49,11 +57,40 @@ void setup() {
     p[i].noiseFieldId = float(i) / 100;
   }
   //
+  println("Setup Kinect");
+  kinect = new Kinect(this);
+  kinect.initDepth();
+  //
   background(255);
   frameRate(30);
+  imageMode(CENTER);
 }
 
 void draw() {
+  //
+  if (sys_mode == 1 || sys_mode == 3) {
+    int[] rawDepth = kinect.getRawDepth();
+    int count = 0;
+    for (int i = 0; i < rawDepth.length; i+= 3) {
+      if (rawDepth[i] < 500) {
+        count += 1;
+      }
+      if (count > kinectDepthMinReq) {
+        break;
+      }
+    }
+    if (count > kinectDepthMinReq && sys_mode == 1) {
+      sys_mode = 2;
+      modeCD = 150;
+    } else if (count == 0 && sys_mode == 3) {
+      sys_mode = 0;
+      modeCD = 150;
+    }
+  }
+  if (sys_mode == 3 && modeCD == 0) {
+    tint(255, 100);
+    image(logo, width / 2, height / 2, logo.width * logoScale, logo.height * logoScale);
+  }
   //background(0, 40);
   ringContraintR = (noise(0, global_time)) * width / 4;
   noStroke();
@@ -67,14 +104,21 @@ void draw() {
     particle.debugOutput();
     particle.draw();
   }
+  
+  
 
   global_time += 0.01;
-  if (modeCD == 1 && sys_mode == 0) {
-      sys_mode = (sys_mode + 1) % 4;
+  if (modeCD == 1 && sys_mode != 3) {
+    sys_mode = (sys_mode + 1) % 4;
+    
+    if (sys_mode == 3) {
+      modeCD = 100;
+    }
   }
   if (modeCD > 0) {
     modeCD --;
   }
+
 }
 
 void mousePressed() {
